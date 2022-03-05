@@ -82,4 +82,20 @@ export class UserEntity {
     this.firstName = input.firstName;
     this.lastName = input.lastName;
   }
+
+  /**
+   * Creates a deep copy of this instance.
+   *
+   * @returns an {@link UserEntity}
+   */
+  clone(): UserEntity {
+    const record = new UserEntity();
+    record.id = this.id;
+    record.email = this.email;
+    record.firstName = this.firstName;
+    record.lastName = this.lastName;
+    record.createdDateTime = this.createdDateTime;
+    record.updatedDateTime = this.updatedDateTime;
+    return record;
+  }
 }

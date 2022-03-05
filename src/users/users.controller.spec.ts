@@ -2,7 +2,8 @@ import { faker } from '@faker-js/faker';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DeleteResult, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import { UserDatabaseMock } from '../../test/user-database.mock';
 import { FindOneParams } from '../utils';
 import { UserEntity } from './user.entity';
 import { UserInput } from './user.input';
@@ -10,8 +11,14 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 describe('UsersController', () => {
+  let userDatabaseMock: UserDatabaseMock;
   let controller: UsersController;
   let repository: Repository<UserEntity>;
+
+  beforeAll(() => {
+    userDatabaseMock = new UserDatabaseMock();
+    userDatabaseMock.init(20);
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -36,160 +43,171 @@ describe('UsersController', () => {
   });
 
   describe('Find All', () => {
-    it('should return a list of all users', () => {
-      const users: UserEntity[] = [];
-      for (let index = 1; index <= 10; index++) {
-        const record = new UserEntity();
-        record.id = index;
-        record.email = faker.internet.email();
-        record.firstName = faker.name.firstName();
-        record.lastName = faker.name.lastName();
-        record.handleBeforeInsert();
-        users.push(record);
-      }
-
+    it('should return a list of all users', async () => {
       jest.spyOn(repository, 'find').mockImplementationOnce(() => {
-        return Promise.resolve(users);
+        return userDatabaseMock.findAll();
       });
-      expect(controller.findAll()).resolves.toEqual(
+
+      const users = await userDatabaseMock.findAll();
+
+      await expect(controller.findAll()).resolves.toEqual(
         users.map((entity) => entity.toDto()),
       );
     });
   });
 
   describe('Find One', () => {
+    const params = new FindOneParams();
+
     it("should throw NotFoundException if the user record isn't found", () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return undefined;
-      });
-      const params = Object.assign(FindOneParams, { id: 1 });
+      mockOnceFindOneById();
+
+      params.id = -1;
+
       expect(controller.findOne(params)).rejects.toEqual(
         new NotFoundException(),
       );
     });
 
-    it('should return a user record', () => {
-      const record = new UserEntity();
-      record.id = 1;
-      record.email = faker.internet.email();
-      record.firstName = faker.name.firstName();
-      record.lastName = faker.name.lastName();
-      record.createdDateTime = new Date();
-      record.updatedDateTime = new Date();
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      const params = Object.assign(FindOneParams, { id: record.id });
-      expect(controller.findOne(params)).resolves.toEqual(record.toDto());
+    it('should return a user record', async () => {
+      mockOnceFindOneById();
+
+      const record = await userDatabaseMock.findOneById(1);
+      expect(record).toBeDefined();
+      params.id = record.id;
+
+      await expect(controller.findOne(params)).resolves.toEqual(record.toDto());
     });
   });
 
   describe('Create record', () => {
     const input = new UserInput();
-    input.email = faker.internet.email();
     input.firstName = faker.name.firstName();
     input.lastName = faker.name.lastName();
-    const record = new UserEntity();
-    record.id = 1;
-    record.populateFromInput(input);
-    record.handleBeforeInsert();
 
-    it("should throw BadRequestException if the user's email isn't unique", () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      expect(controller.create(input)).rejects.toEqual(
+    it("should throw BadRequestException if the user's email isn't unique", async () => {
+      mockOnceFindOneByEmail();
+
+      const record = await userDatabaseMock.findOneById(1);
+      input.email = record.email;
+
+      await expect(controller.create(input)).rejects.toEqual(
         new BadRequestException(['email must be unique']),
       );
     });
 
-    it('should create a new record', () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(undefined);
-      });
-      jest.spyOn(repository, 'save').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      expect(controller.create(input)).resolves.toEqual(record.toDto());
+    it('should create a new record', async () => {
+      mockOnceFindOneByEmail();
+      mockOnceSave();
+
+      input.email = faker.internet.email();
+
+      const result = await controller.create(input);
+      expect(result).toBeDefined();
+      expect(result.id).toBeGreaterThan(0);
+      expect(result).toMatchObject(input);
+      expect(result.createdDateTime).not.toBeNull();
+      expect(result.updatedDateTime).not.toBeNull();
     });
   });
 
   describe('Update record', () => {
-    const params = Object.assign(FindOneParams, { id: 1 });
+    const params = new FindOneParams();
+    params.id = -1;
     const input = new UserInput();
     input.email = faker.internet.email();
     input.firstName = faker.name.firstName();
     input.lastName = faker.name.lastName();
-    const record = new UserEntity();
-    record.id = 1;
-    record.populateFromInput(input);
-    record.handleBeforeInsert();
-    const dupEmailRecord = new UserEntity();
-    dupEmailRecord.id = 2;
-    dupEmailRecord.email = record.email;
+    let record: UserEntity;
 
     it("should throw NotFoundException if the user record isn't found", () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(undefined);
-      });
+      mockOnceFindOneById();
       expect(controller.update(params, input)).rejects.toEqual(
         new NotFoundException(),
       );
     });
 
-    it("should throw BadRequestException if the user's email isn't unique", () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(dupEmailRecord);
-      });
-      expect(controller.update(params, input)).rejects.toEqual(
+    it("should throw BadRequestException if the user's email isn't unique", async () => {
+      mockOnceFindOneById();
+      mockOnceFindOneByEmail();
+
+      record = await userDatabaseMock.findOneById(2);
+      expect(record).toBeDefined();
+      params.id = 1;
+      input.email = record.email;
+
+      await expect(controller.update(params, input)).rejects.toEqual(
         new BadRequestException(['email must be unique']),
       );
     });
 
-    it('should update the record', () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      record.handleBeforeUpdate();
-      jest.spyOn(repository, 'save').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      expect(controller.update(params, input)).resolves.toEqual(record.toDto());
+    it('should update the record', async () => {
+      mockOnceFindOneById();
+      mockOnceFindOneByEmail();
+      mockOnceSave();
+
+      record = await userDatabaseMock.findOneById(1);
+      expect(record).toBeDefined();
+      params.id = record.id;
+      input.email = faker.internet.email();
+      const recordDto = record.toDto();
+      const user = await controller.update(params, input);
+
+      expect(user).toBeDefined();
+      expect(user.id).toEqual(recordDto.id);
+      expect(user).toMatchObject(input);
+      expect(user.createdDateTime).toEqual(recordDto.createdDateTime);
+      expect(user.updatedDateTime).not.toBeNull();
+      expect(user.updatedDateTime).not.toEqual(recordDto.updatedDateTime);
     });
   });
 
   describe('Delete record', () => {
-    const params = Object.assign(FindOneParams, { id: 1 });
-    const record = new UserEntity();
-    record.id = 1;
-    record.email = faker.internet.email();
-    record.firstName = faker.name.firstName();
-    record.lastName = faker.name.lastName();
-    record.handleBeforeInsert();
+    const params = new FindOneParams();
+    params.id = -1;
 
     it("should throw NotFoundException if the user record isn't found", () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return undefined;
-      });
+      mockOnceFindOneById();
       expect(controller.delete(params)).rejects.toEqual(
         new NotFoundException(),
       );
     });
 
-    it('should delete the user record', () => {
-      jest.spyOn(repository, 'findOne').mockImplementationOnce(() => {
-        return Promise.resolve(record);
-      });
-      jest.spyOn(repository, 'delete').mockImplementationOnce(() => {
-        return Promise.resolve(new DeleteResult());
-      });
-      expect(controller.delete(params)).resolves.toEqual(record.toDto());
+    it('should delete the user record', async () => {
+      mockOnceFindOneById();
+      jest
+        .spyOn(repository, 'delete')
+        .mockImplementationOnce((conditions: any) => {
+          return userDatabaseMock.delete(conditions.id);
+        });
+
+      const record = await userDatabaseMock.findOneById(1);
+      expect(record).toBeDefined();
+      params.id = record.id;
+
+      await expect(controller.delete(params)).resolves.toEqual(record.toDto());
     });
   });
+
+  function mockOnceFindOneById() {
+    jest.spyOn(repository, 'findOne').mockImplementationOnce((conditions) => {
+      return userDatabaseMock.findOneById(conditions as number);
+    });
+  }
+
+  function mockOnceFindOneByEmail() {
+    jest
+      .spyOn(repository, 'findOne')
+      .mockImplementationOnce((conditions: any) => {
+        return userDatabaseMock.findOneByEmail(conditions.where.email);
+      });
+  }
+
+  function mockOnceSave() {
+    jest
+      .spyOn(repository, 'save')
+      .mockImplementationOnce((record: UserEntity) => {
+        return userDatabaseMock.save(record);
+      });
+  }
 });

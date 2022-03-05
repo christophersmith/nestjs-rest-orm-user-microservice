@@ -1,10 +1,18 @@
 {
   "name": "nestjs-rest-orm-user-microservice",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "This is an example project using NestJS and TypeORM to demonstrate a Node.js-based REST microservice.",
+  "license": "MIT",
+  "author": "Chris Smith",
+  "homepage": "https://github.com/christophersmith/nestjs-rest-orm-user-microservice#readme",
+  "bugs": {
+    "url": "https://github.com/christophersmith/nestjs-rest-orm-user-microservice/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christophersmith/nestjs-rest-orm-user-microservice.git"
+  },
   "private": true,
-  "license": "UNLICENSED",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
