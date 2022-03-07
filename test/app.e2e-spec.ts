@@ -78,6 +78,26 @@ describe('AppController (e2e)', () => {
         });
     });
 
+    it('should throw a BadRequestException with two messages when email and firstName are provided but firstName is too long', () => {
+      input.email = faker.internet.email();
+      input.firstName = 'rightsaidfred'.repeat(15);
+      return request(app.getHttpServer())
+        .post('/users')
+        .send(input)
+        .expect('Content-Type', /json/)
+        .expect(400)
+        .then((response) => {
+          expect(response.body).toEqual({
+            statusCode: 400,
+            message: [
+              'firstName must be shorter than or equal to 64 characters',
+              'lastName should not be empty',
+            ],
+            error: 'Bad Request',
+          });
+        });
+    });
+
     it('should throw a BadRequestException with one message when email and firstName is provided', () => {
       input.firstName = faker.name.firstName();
       return request(app.getHttpServer())
@@ -89,6 +109,24 @@ describe('AppController (e2e)', () => {
           expect(response.body).toEqual({
             statusCode: 400,
             message: ['lastName should not be empty'],
+            error: 'Bad Request',
+          });
+        });
+    });
+
+    it('should throw a BadRequestException with one message when email, firstName and lastName is provided but firstName is too long', () => {
+      input.lastName = 'rightsaidfred'.repeat(15);
+      return request(app.getHttpServer())
+        .post('/users')
+        .send(input)
+        .expect('Content-Type', /json/)
+        .expect(400)
+        .then((response) => {
+          expect(response.body).toEqual({
+            statusCode: 400,
+            message: [
+              'lastName must be shorter than or equal to 64 characters',
+            ],
             error: 'Bad Request',
           });
         });
