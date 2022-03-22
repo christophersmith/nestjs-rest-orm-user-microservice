@@ -1,6 +1,8 @@
-# NestJS + TypeORM REST User Microservice
+# NestJS + TypeORM + Swagger REST User Microservice
 
-This is an example project using NestJS and TypeORM to demonstrate a Node.js-based REST microservice.
+An example NestJS project that uses TypeORM to demonstrate a Node.js-based REST microservice. This example compliments my [Lab Notes: Looking at NestJS for Web Apps – Overview, Performance, Thoughts](https://blog.missiondata.com/lab-notes-looking-at-nestjs-for-web-apps-overview-performance-thoughts/) blog article where I provide an overview of NestJS, discuss performance, and wrap up with thoughts from a developer perspective.
+
+This application uses TypeORM and Swagger to implement a simple REST microservice using the _default_ NestJS configuration. The REST endpoints allow you to retrieve and manage user records from a Microsoft SQL Server database. You are able to get a list of all users, get one user, create a user, update a user, and delete a user. All client input, like user identifiers or details, is validated.
 
 ## Requirements
 
@@ -11,7 +13,7 @@ This is an example project using NestJS and TypeORM to demonstrate a Node.js-bas
 
 ## Installation
 
-The following commands should be run from the project directory after yuo've installed the requirements above.
+The following commands should be run from the project directory after you've installed the requirements above.
 
 Install the required node packages and build the project:
 
@@ -48,17 +50,17 @@ $ npm run start
 
 Once started, you can acess the Swagger API from [http://localhost:3000](http://localhost:3000) to experiment with the API calls.
 
-When finished, you can stop the NestJS app and the docker-compose process by pressing the keys CTRL + C.
+When finished, you can stop the NestJS app and the docker-compose process by pressing the keys `CTRL + C`.
 
 ## Test
 
-The following commands will run tests. Please note that the database should be running (via docker-compose up) for the e2e tests.
+The following commands will run tests. Please note that the database should be running (via `docker-compose up`) for the end-to-end tests.
 
 ```bash
 # unit tests
 $ npm run test
 
-# e2e tests
+# end-to-end tests
 $ npm run test:e2e
 
 # test coverage
